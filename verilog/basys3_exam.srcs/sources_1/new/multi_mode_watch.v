@@ -19,23 +19,19 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
-module multi_mode_watch(
+ module multi_mode_watch(
     input clk, reset_p,
     input [3:0] btn,
     output reg [7:0] seg_7,
     output reg [3:0] com,
     output reg [15:0] led,
     output reg alarm
-);
+ );
 
     // btn[3] 을 mode 선택을 위한 버튼
     wire btn_mode;
-    btn_cntr mode_btn(
-        .clk(clk), 
-        .reset_p(reset_p),
-        .btn(btn[3]), 
-        .btn_pedge(btn_mode)
-    );
+    btn_cntr mode_btn(.clk(clk), .reset_p(reset_p),
+        .btn(btn[3]), .btn_pedge(btn_mode));
 
     // mode 상태 (0: watch, 1: cook_timer, 2: stop_watch)
     reg [1:0] mode = 2'b00;
@@ -76,7 +72,7 @@ module multi_mode_watch(
     wire cook_timer_alarm;
     
     // cook_timer 인스턴스
-    cook_timer cook_timer_mode(
+    cook_timer_top cook_timer_mode(
         .clk(clk),
         .reset_p(reset_p),
         .btn(btn[3:0]),  // btn[3:0]을 cook_timer의 버튼으로 사용
@@ -92,7 +88,7 @@ module multi_mode_watch(
     wire [15:0] stop_watch_led;
     
     // stop_watch 인스턴스
-    stop_watch stop_watch_mode(
+    stop_watch_top stop_watch_mode(
         .clk(clk),
         .reset_p(reset_p),
         .btn(btn[2:0]),  // btn[2:0]을 stop_watch의 버튼으로 사용
@@ -131,5 +127,5 @@ module multi_mode_watch(
         endcase
     end
     
-endmodule
+ endmodule
 
