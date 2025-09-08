@@ -722,12 +722,151 @@ module i2c_txtlcd_top(
 
 endmodule
 
+module led_pwm_top(
+    input clk, reset_p,
+    output led_r, led_g, led_b,
+    output [15:0] led);
 
+    integer cnt;
+    always @(posedge clk)cnt = cnt + 1;
+    
+    pwm_Nfreq_Nstep #(.duty_step_N(200)) pwm_led_r(clk, reset_p, cnt[27:20], led_r);
+    pwm_Nfreq_Nstep #(.duty_step_N(100)) pwm_led_g(clk, reset_p, cnt[28:21], led_g);
+    pwm_Nfreq_Nstep #(.duty_step_N(100)) pwm_led_b(clk, reset_p, cnt[29:22], led_b);
+    
+    
+endmodule
 
+module sg90_top(
+    input clk, reset_p, 
+    output sg90);
 
+    integer step, cnt;
+    always @(posedge clk)cnt = cnt + 1;
+    wire cnt_pedge;
+    edge_detector_p echo_ed(
+        .clk(clk), .reset_p(reset_p), .cp(cnt[22]),
+        .p_edge(cnt_pedge));
+    
+    reg inc_flag;
+    always @(posedge clk or posedge reset_p)begin
+        if(reset_p)begin
+            step = 8;
+            inc_flag = 1;
+        end
+        else if(cnt_pedge)begin
+            if(inc_flag)begin
+                if(step >= 189)inc_flag = 0;
+                else step = step + 1;
+            end
+            else begin
+                if(step <= 18)inc_flag = 1;
+                else step = step - 1;
+            end
+        end
+    end
+    pwm_Nfreq_Nstep #(.pwm_freq(50), .duty_step_N(1440)) 
+        pwm_sg90(clk, reset_p, step, sg90);
+    
 
+endmodule
 
+module adc_top_6(
+    input clk, reset_p,
+    input vauxp6, vauxn6,
+    output [7:0] seg_7,
+    output [3:0] com,
+    output [15:0] led);
+    
+    wire [4:0] channel_out;
+    wire eoc_out;
+    wire [15:0] do_out;
+    
+    xadc_wiz_0 adc
+          (
+          .daddr_in({2'b00, channel_out}),            // Address bus for the dynamic reconfiguration port
+          .dclk_in(clk),             // Clock input for the dynamic reconfiguration port
+          .den_in(eoc_out),              // Enable Signal for the dynamic reconfiguration port
+          .reset_in(reset_p),            // Reset signal for the System Monitor control logic
+          .vauxp6(vauxp6),              // Auxiliary channel 6
+          .vauxn6(vauxn6),
+          .channel_out(channel_out),         // Channel Selection Outputs
+          .do_out(do_out),              // Output data bus for dynamic reconfiguration port
+          .eoc_out(eoc_out)             // End of Conversion Signal
+          );
+    
+    reg [11:0] adc_value;
+    wire eoc_pedge;
+    edge_detector_p eoc_ed(
+        .clk(clk), .reset_p(reset_p), .cp(eoc_out),
+        .p_edge(eoc_pedge));
+    always @(posedge clk, posedge reset_p)begin
+        if(reset_p)adc_value = 0;
+        else if(eoc_pedge)adc_value = do_out[15:8];
+    end
+    
+    fnd_cntr fnd(.clk(clk), .reset_p(reset_p),
+        .fnd_value(adc_value),
+        .hex_bcd(0),
+        .seg_7(seg_7), .com(com));
+endmodule
 
+module adc_sequence2_top(
+    input clk, reset_p,
+    input vauxp6, vauxn6, vauxp14, vauxn14,
+    output [7:0] seg_7,
+    output [3:0] com,
+    output led_g, led_r,
+    output [15:0] led);
+    
+    wire [4:0] channel_out;
+    wire [15:0] do_out;
+    wire eoc_out;
+    xadc_joystic joystick
+          (
+          .daddr_in({2'b00, channel_out}),            // Address bus for the dynamic reconfiguration port
+          .dclk_in(clk),             // Clock input for the dynamic reconfiguration port
+          .den_in(eoc_out),              // Enable Signal for the dynamic reconfiguration port
+          .reset_in(reset_p),            // Reset signal for the System Monitor control logic
+          .vauxp6(vauxp6),              // Auxiliary channel 6
+          .vauxn6(vauxn6),
+          .vauxp14(vauxp14),             // Auxiliary channel 14
+          .vauxn14(vauxn14),
+          .channel_out(channel_out),         // Channel Selection Outputs
+          .do_out(do_out),              // Output data bus for dynamic reconfiguration port
+          .eoc_out(eoc_out)             // End of Conversion Signal
+          );
+    
+    reg [11:0] adc_value_x, adc_value_y;
+    wire eoc_pedge;
+    edge_detector_p eoc_ed(
+        .clk(clk), .reset_p(reset_p), .cp(eoc_out),
+        .p_edge(eoc_pedge));
+    always @(posedge clk, posedge reset_p)begin
+        if(reset_p)begin
+            adc_value_x = 0;
+            adc_value_y = 0;
+        end
+        else if(eoc_pedge)begin
+            case(channel_out[3:0])
+                6 :adc_value_x = do_out[15:4];
+                14:adc_value_y = do_out[15:4];
+            endcase
+        end
+    end
+    wire [7:0] x_bcd, y_bcd;
+    bin_to_dec bcd_x(.bin(adc_value_x[11:6]), .bcd(x_bcd));
+    bin_to_dec bcd_y(.bin(adc_value_y[11:6]), .bcd(y_bcd));
+    fnd_cntr fnd(.clk(clk), .reset_p(reset_p),
+        .fnd_value({x_bcd, y_bcd}),
+        .hex_bcd(1),
+        .seg_7(seg_7), .com(com));
+        
+    pwm_Nfreq_Nstep #(.duty_step_N(128)) pwm_led_g(clk, reset_p, adc_value_x[11:4], led_g);
+    pwm_Nfreq_Nstep #(.duty_step_N(128)) pwm_led_b(clk, reset_p, adc_value_y[11:4], led_r);
+          
+
+endmodule
 
 
 

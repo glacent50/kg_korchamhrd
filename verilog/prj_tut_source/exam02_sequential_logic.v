@@ -275,7 +275,23 @@ module edge_detector_p(
     assign n_edge = ({ff_cur, ff_old} == 2'b01) ? 1'b1 : 1'b0;
 endmodule
 
+module memory(
+    input clk, 
+    input rd_en, wr_en,
+    input [3:0] wr_addr,
+    input [3:0] rd_addr,
+    input [7:0] i_data,
+    output reg [7:0] o_data);
 
+    reg [7:0] ram [0:1023];
+    always @(posedge clk)begin
+        if(wr_en)ram[wr_addr] = i_data;
+    end
+    always @(posedge clk)begin
+        if(rd_en)o_data = ram[rd_addr];
+    end
+
+endmodule
 
 
 

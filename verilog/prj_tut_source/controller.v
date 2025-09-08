@@ -28,7 +28,7 @@ module fnd_cntr(
     output [3:0] com);
     
     wire [15:0] bcd_value;
-    bin_to_dec bcd(.bin(fnd_value[11:0]), .bcd(sec_bcd));
+    bin_to_dec bcd(.bin(fnd_value[11:0]), .bcd(bcd_value));
     
     reg [16:0] clk_div;
     always @(posedge clk)clk_div = clk_div + 1;
@@ -730,7 +730,52 @@ module i2c_lcd_send_byte(
     end
 endmodule
 
+module pwm_Nfreq_Nstep(
+    input clk, reset_p,
+    input [31:0] duty,
+    output reg pwm);
 
+    parameter sys_clk_freq = 100_000_000;
+    parameter pwm_freq = 10_000;
+    parameter duty_step_N = 200;
+    parameter temp = sys_clk_freq / pwm_freq / duty_step_N / 2;
+    
+    integer cnt;
+    reg pwm_freqXn;
+    always @(posedge clk, posedge reset_p)begin
+        if(reset_p)begin
+            cnt  = 0;
+            pwm_freqXn = 0;
+        end
+        else begin
+            if(cnt >= temp-1)begin
+                cnt = 0;
+                pwm_freqXn = ~pwm_freqXn;
+            end
+            else cnt = cnt + 1;
+        end
+    end
+    
+    wire pwm_freqXn_nedge;
+    edge_detector_p pwm_freqX128_ed(
+        .clk(clk), .reset_p(reset_p), .cp(pwm_freqXn),
+        .n_edge(pwm_freqXn_nedge));
+        
+    integer cnt_duty;
+    always @(posedge clk, posedge reset_p)begin
+        if(reset_p)begin
+            cnt_duty = 0;
+            pwm = 0;
+        end
+        else if(pwm_freqXn_nedge)begin
+            if(cnt_duty >= duty_step_N)cnt_duty = 0;
+            else cnt_duty = cnt_duty + 1;
+            if(cnt_duty < duty)pwm = 1;
+            else pwm = 0;
+        end
+    end
+    
+endmodule
 
 
 

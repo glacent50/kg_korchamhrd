@@ -35,7 +35,7 @@ void lcdData(uint8_t data)
 void i2cLcd_Init()
 {
   HAL_Delay(50);
-  lcdCommand(0x33);
+  lcdCommand(0x33); // 
   HAL_Delay(5);
   lcdCommand(0x32);
   HAL_Delay(5);
