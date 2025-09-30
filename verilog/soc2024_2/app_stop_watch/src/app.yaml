@@ -1,0 +1,4 @@
+domain_path: /home/user22/workspace_semicon/verilog/soc2024_2/platform_stop_watch/export/platform_stop_watch/sw/standalone_microblaze_riscv_0
+app_src_dir: /home/user22/tools/Vitis/2024.2/data/embeddedsw/lib/sw_apps/hello_world
+template: hello_world
+lang: c
